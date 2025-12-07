@@ -8,6 +8,7 @@ some functions using os.walk can be replaced by os.path
 """
 import os
 import fnmatch
+from math import trunc, modf
 import numpy as np
 from scipy import interpolate
 from scipy.special import exp1
@@ -863,6 +864,71 @@ def scale_classical(inDict, ip):
     else:
         print(' input dict does not have the correct keys')
     return
+
+def sig_fig(x, sig,  verbose=False):
+    """
+
+    :param x: a floating point number
+    :type x: float
+
+    :param sig: the number of desired significant figures
+    :type sig: int
+
+    returns a string of lenght 15 of the number x converted to the number
+        of significant figures
+
+    round_sig provided by:
+    https://stackoverflow.com/users/331701/evgeny
+    """
+
+    from math import log10, floor
+    def round_sig(x, sig=2):
+        return round(x, sig-int(floor(log10(abs(x))))-1)
+
+    fpart,  ipart = modf(x)
+    ipart_str = '%i'%(ipart)
+
+    if x >= 0.:
+        fpart_str = str(fpart)
+        if verbose:
+            print('len ipart:  %i  sig:  %i'%(len(ipart_str),  sig))
+        if len(ipart_str) >= sig:
+            ipart_20s = '%15.0f'%(round_sig(ipart, sig))
+            fsig = sig - len(ipart_str)
+            if verbose:
+                print('fsig:  %i'%(fsig))
+            return ipart_20s + fpart_str[1:fsig + 2]
+        else:
+            x_trunc = "%i"%(trunc(x))
+            d1 = 15
+            d2 = sig - len(x_trunc)
+            if d2 < 1:
+                d2 = 0
+            dd = '%i.%if'%(d1, d2)
+            dd = '%' + dd
+            return dd%(x)
+    elif x < 0.:
+        if verbose:
+            print('len ipart:  %i  sig:  %i'%(len(ipart_str),  sig))
+        if len(ipart_str) > sig:
+            fpart_str = str(abs(fpart))
+            ipart_20s = '%15s'%(round_sig(ipart, sig))
+            fsig = sig - len(ipart_str)
+            if verbose:
+                print('fsig:  %i'%(fsig))
+            return ipart_20s
+        else:
+            x_trunc = "%i"%(trunc(x))
+            d1 = 15
+            d2 = sig - len(x_trunc) + 1
+            if d2 < 1:
+                d2 = 0
+            if verbose:
+                print('d1:  %i  d2:  %i'%(d1,  d2))
+            dd = '%i.%if'%(d1, d2)
+            dd = '%' + dd
+            return dd%(x)
+
 
 def units(defaults):
     """ to create a set of units compatible with ChiantiPy default values
