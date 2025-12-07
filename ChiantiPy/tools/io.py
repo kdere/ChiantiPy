@@ -8,7 +8,7 @@ from datetime import date
 import pickle
 import configparser
 from fnmatch import fnmatch
-from math import log10, floor
+
 
 import numpy as np
 
@@ -2333,7 +2333,7 @@ def wgfaRead(ions, filename=None, elvlcname=0, total=False, getLatex = False, ve
     return Wgfa
 
 
-def wgfaWrite(info, filename = None, minBranch = 1.e-5, sig_fig = 6, maxLvl1 = None,  comment=None):
+def wgfaWrite(info, filename = None, minBranch = 1.e-5, sig = 7, maxLvl1 = None,  comment=None):
     """
     Write data to a CHIANTI .wgfa file
 
@@ -2357,9 +2357,9 @@ def wgfaWrite(info, filename = None, minBranch = 1.e-5, sig_fig = 6, maxLvl1 = N
         The transition must have a branching ratio greater than the specified minBranch
             to be written to the file.  default = 1.e-5
 
-    sig_fig :  `int`
+    sig :  `int`
         the number of significant figures for the output wavelength
-        default = 6
+        default = 7
 
     maxLvl1 : `int`
         the largest level to be written. default is None
@@ -2378,6 +2378,7 @@ def wgfaWrite(info, filename = None, minBranch = 1.e-5, sig_fig = 6, maxLvl1 = N
     print((' wgfa file name = ', wgfaname))
     if minBranch > 0.:
         info['ref'].append(' minimum branching ratio = %10.2e'%(minBranch))
+    info['ref'].extend([" ", " wavlengths have %i significant figures"%(sig),  " "])
     if comment is not None:
         info['ref'].append(comment)
 
@@ -2411,9 +2412,7 @@ def wgfaWrite(info, filename = None, minBranch = 1.e-5, sig_fig = 6, maxLvl1 = N
                 test4 = True
             if test1 and test2 and test3 and test4:
                 # get the wavelength with the correct number of significant digits
-                def round_sig(x, sig=2):
-                    return round(x, sig-int(floor(log10(abs(x))))-1)
-                wvlStr = str(round_sig(info['wvl'][itrans], sig_fig))
+                wvlStr = util.sig_fig(info['wvl'][itrans], sig)
                 if 'pretty1' in info:
                     # generally only useful with NIST data
                     if 'transType' in info:
@@ -2439,6 +2438,7 @@ def wgfaWrite(info, filename = None, minBranch = 1.e-5, sig_fig = 6, maxLvl1 = N
         newref = [aref.strip() for aref in ref if aref.strip() != '-1']
         for one in newref:
             outpt.write(one+'\n')
-        outpt.write(today.strftime('%Y %B %d') +'\n')
+
+#        outpt.write(today.strftime('%Y %B %d') +'\n')
         outpt.write(' -1 \n')
 
