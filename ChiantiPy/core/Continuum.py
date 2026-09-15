@@ -108,7 +108,7 @@ class continuum(ioneqOne, ionTrails):
                 # need the following for p2eRatio but will use default abundance
                 self.AbundAll = chdata.AbundanceDefault['abundance']
             elif isinstance(abundance, str):
-                ab = io.abundanceRead(abundance,  verbose=1)
+                ab = io.abundanceRead(abundance,  verbose=True)
                 self.Abundance = ab['abundance'][self.Z-1]
                 self.AbundanceName = abundance
                 self.AbundAll = ab['abundance']
@@ -169,16 +169,21 @@ class continuum(ioneqOne, ionTrails):
                      * (const.fine*const.planck/np.pi)**3
                      * np.sqrt(2.*np.pi/3./const.emass/const.boltzmann))
         # include temperature dependence
+
         prefactor *= self.Zion**2/np.sqrt(self.Temperature)
+
         if includeAbund:
             prefactor *= self.Abundance
         if includeIoneq:
             prefactor *= self.IoneqOne
         if self.Em is not None:
             prefactor *= self.Em
+#        prefactor = prefactor.squeeze()
         # define exponential factor
         exp_factor = np.exp(-const.planck*(1.e8*const.light)/const.boltzmann
                             / np.outer(self.Temperature, wavelength))/(wavelength**2)
+#        exp_factor = exp_factor.squeeze()
+
         # calculate gaunt factor
         gf_itoh = self.itoh_gaunt_factor(wavelength)
         gf_sutherland = self.sutherland_gaunt_factor(wavelength)
@@ -188,9 +193,13 @@ class continuum(ioneqOne, ionTrails):
         if chdata.Defaults['flux'] == 'photon':
             energy_factor = const.planck*(1.e8*const.light)/wavelength
 
-        free_free_emission = (prefactor[:,np.newaxis]*exp_factor*gf/energy_factor).squeeze()
+        if prefactor.size > 1:
+            free_free_emission = (prefactor[:,np.newaxis]*exp_factor*gf/energy_factor)
+        else:
+            free_free_emission = (prefactor*exp_factor*gf/energy_factor).squeeze()
         self.FreeFree = {'intensity':free_free_emission, 'temperature':self.Temperature, 'wvl':wavelength,
-            'em':self.Em, 'ions':self.IonStr, 'xlabel':xlabel,  'ylabel':ylabel,  'gf':gf}
+            'em':self.Em, 'ions':self.IonStr, 'xlabel':xlabel,  'ylabel':ylabel,  'gf':gf, 'prefactor':prefactor,
+            'exp_factor':exp_factor,  'gf':gf}
 
     def freeFreeLoss(self, includeAbund=True, includeIoneq=True,  **kwargs):
         """
@@ -1126,66 +1135,3 @@ class continuum(ioneqOne, ionTrails):
 
         self.VernerCross = np.where(en < eth, 0., cross_section)
 
-#    def ioneqOne(self):
-#        '''
-#        Provide the ionization equilibrium for the selected ion as a function of temperature.
-#        Similar to but not identical to ion.ioneqOne() - the ion class needs to be able to handle
-#        the 'dielectronic' ions
-#        returned in self.IoneqOne
-#        '''
-#        #
-#        if hasattr(self, 'Temperature'):
-#            temperature = self.Temperature
-#        else:
-#            return
-#        #
-#        if hasattr(self, 'IoneqAll'):
-#            ioneqAll = self.IoneqAll
-#        else:
-#            self.IoneqAll = io.ioneqRead(ioneqName = self.Defaults['ioneqfile'])
-#            ioneqAll = self.IoneqAll
-#        #
-#        ioneqTemperature = ioneqAll['ioneqTemperature']
-#        Z = self.Z
-#        stage = self.Stage
-#        ioneqOne = np.zeros_like(temperature)
-#        #
-#        thisIoneq = ioneqAll['ioneqAll'][Z-1,stage-1].squeeze()
-#        gioneq = thisIoneq > 0.
-#        goodt1 = self.Temperature >= ioneqTemperature[gioneq].min()
-#        goodt2 = self.Temperature <= ioneqTemperature[gioneq].max()
-#        goodt = np.logical_and(goodt1,goodt2)
-#        y2 = splrep(np.log(ioneqTemperature[gioneq]),np.log(thisIoneq[gioneq]),s=0)
-#        #
-#        if goodt.sum() > 0:
-#            if self.Temperature.size > 1:
-#                gIoneq = splev(np.log(self.Temperature[goodt]),y2)   #,der=0)
-#                ioneqOne[goodt] = np.exp(gIoneq)
-#            else:
-#                gIoneq = splev(np.log(self.Temperature),y2)
-#                ioneqOne = np.exp(gIoneq)
-#                ioneqOne = np.atleast_1d(ioneqOne)
-#            self.IoneqOne = ioneqOne
-#        else:
-#            self.IoneqOne = np.zeros_like(self.Temperature)
-
-
-    def ioneq_one(self, stage, **kwargs):
-        """
-        Calculate the equilibrium fractional ionization of the ion as a function of temperature.
-
-        Uses the `ChiantiPy.core.ioneq` module and does a first-order spline interpolation to the data. An
-        ionization equilibrium file can be passed as a keyword argument, `ioneqfile`. This can
-        be passed through as a keyword argument to any of the functions that uses the
-        ionization equilibrium.
-
-        Parameters
-        ----------
-        stage : int
-            Ionization stage, e.g. 25 for Fe XXV
-        """
-        tmp = ioneq(self.Z)
-        tmp.load(ioneqName=kwargs.get('ioneqfile', None))
-        ionization_equilibrium = splev(self.Temperature,
-                                       splrep(tmp.Temperature, tmp.Ioneq[stage-1,:], k=1), ext=1)
-        return np.where(ionization_equilibrium < 0., 0., ionization_equilibrium)
